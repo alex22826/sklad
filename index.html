@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Склад — приёмка по скану</title>
+  <meta name="description" content="Приёмка и списание товара по 2D/QR-сканеру: скан сразу попадает в раздел «Склад».">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css?v=3">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3 3.5 7.5v9L12 21l8.5-4.5v-9L12 3Zm-8.5 4.5L12 12l8.5-4.5M12 12v9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8m8 0h2.5A1.5 1.5 0 0 1 20 5.5V8m0 8v2.5a1.5 1.5 0 0 1-1.5 1.5H16m-8 0H5.5A1.5 1.5 0 0 1 4 18.5V16M7 12h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h9m4 0h3M4 12h3m4 0h9M4 18h11m4 0h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></g></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Zm9.5-13.5 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5m0-15v15m0 0A1.5 1.5 0 0 0 6.5 21H19M9 7h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="topbar-in">
+      <div class="brand"><svg class="i"><use href="#i-box"/></svg><span>Склад</span></div>
+      <nav class="tabs" role="tablist" aria-label="Разделы">
+        <button type="button" class="tab is-active" data-tab="scan" role="tab" aria-selected="true">Приёмка</button>
+        <button type="button" class="tab" data-tab="stock" role="tab" aria-selected="false">Склад <span class="count" id="stock-count">0</span></button>
+        <button type="button" class="tab" data-tab="log" role="tab" aria-selected="false">Журнал</button>
+      </nav>
+      <button type="button" class="mode-chip" id="mode-chip" data-mode="in" title="Что произойдёт при скане">Скан → Приход</button>
+      <button type="button" class="icon-btn" id="btn-settings" title="Настройки" aria-label="Настройки"><svg class="i"><use href="#i-sliders"/></svg></button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Приёмка -->
+    <section class="panel" id="panel-scan" role="tabpanel">
+      <div class="scan-card" id="scan-card" data-mode="in">
+        <div class="scan-top">
+          <div class="modes" role="radiogroup" aria-label="Что делать при скане">
+            <button type="button" class="mode is-active" data-mode="in" role="radio" aria-checked="true">Приход <b>+</b></button>
+            <button type="button" class="mode" data-mode="out" role="radio" aria-checked="false">Расход <b>−</b></button>
+            <button type="button" class="mode" data-mode="test" role="radio" aria-checked="false">Проверка</button>
+          </div>
+          <div class="armed"><i></i><span id="armed-text">Ожидание скана</span></div>
+        </div>
+
+        <label class="scan-label" for="scan-input">Отсканируйте товар</label>
+        <div class="scan-row">
+          <div class="scan-field">
+            <svg class="i"><use href="#i-scan"/></svg>
+            <input id="scan-input" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                   placeholder="Наведите сканер на код…" aria-describedby="scan-status">
+          </div>
+          <label class="qty" title="Сколько единиц учесть одним сканом. После скана вернётся к 1.">
+            <span>Кол-во</span>
+            <input id="scan-qty" type="text" inputmode="decimal" value="1" autocomplete="off">
+          </label>
+        </div>
+        <div class="scan-status" id="scan-status" role="status" aria-live="polite"></div>
+        <pre class="test-out" id="test-out" hidden></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Последние операции</h2>
+          <span class="muted" id="today"></span>
+        </div>
+        <ul class="recent" id="recent"></ul>
+      </div>
+    </section>
+
+    <!-- Склад -->
+    <section class="panel" id="panel-stock" role="tabpanel" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <input type="search" id="stock-q" placeholder="Поиск по артикулу или названию" autocomplete="off">
+          <select id="stock-sort" aria-label="Сортировка">
+            <option value="recent">Сначала недавние</option>
+            <option value="name">По названию</option>
+            <option value="qty">По остатку</option>
+          </select>
+          <button type="button" class="btn" id="stock-catalog" title="Загрузить названия товаров из Excel/CSV"><svg class="i"><use href="#i-book"/></svg>Справочник <span class="count" id="catalog-count">0</span></button>
+          <button type="button" class="btn" id="stock-csv"><svg class="i"><use href="#i-download"/></svg>CSV</button>
+        </div>
+        <div class="summary muted" id="stock-summary"></div>
+        <div class="table-wrap">
+          <table class="table" id="stock-table">
+            <thead><tr><th>Артикул</th><th>Наименование</th><th class="num">Остаток</th><th>Обновлено</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty" id="stock-empty" hidden></p>
+      </div>
+    </section>
+
+    <!-- Журнал -->
+    <section class="panel" id="panel-log" role="tabpanel" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <input type="search" id="log-q" placeholder="Поиск по артикулу или названию" autocomplete="off">
+          <button type="button" class="btn" id="log-csv"><svg class="i"><use href="#i-download"/></svg>CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table" id="log-table">
+            <thead><tr><th>Время</th><th>Операция</th><th>Артикул</th><th>Наименование</th><th class="num">Изм.</th><th class="num">Остаток</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="empty" id="log-empty" hidden>Журнал пуст.</p>
+        <p class="summary muted" id="log-note" hidden></p>
+      </div>
+    </section>
+
+    <p class="foot muted">Данные хранятся в этом браузере. Резервная копия — в настройках.</p>
+  </main>
+
+  <!-- Карточка товара -->
+  <dialog class="dlg" id="dlg-edit">
+    <form id="form-edit">
+      <h3>Товар <code id="edit-sku"></code></h3>
+      <label class="field"><span>Наименование</span><input id="edit-name" autocomplete="off" placeholder="Например: Шина 315/80 R22.5"></label>
+      <label class="field"><span>Остаток</span><input id="edit-qty" inputmode="decimal" autocomplete="off"></label>
+      <p class="hint">Изменение остатка запишется в журнал как «Корректировка».</p>
+      <div class="dlg-actions">
+        <button type="button" class="btn" id="edit-cancel">Отмена</button>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Новый товар: название при первом скане -->
+  <dialog class="dlg" id="dlg-name">
+    <form id="form-name">
+      <h3>Новый товар</h3>
+      <div class="code-big" id="name-code"></div>
+      <label class="field"><span>Как он называется?</span><input id="name-input" autocomplete="off" placeholder="Например: Масло моторное 5W-30, 4 л"></label>
+      <p class="hint">Название запомнится: при следующих сканах этого кода оно появится само. Можно сразу сканировать дальше — введённое сохранится.</p>
+      <div class="dlg-actions">
+        <button type="button" class="btn" id="name-later">Позже</button>
+        <button type="submit" class="btn btn-primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Загрузка справочника -->
+  <dialog class="dlg dlg-wide" id="dlg-import">
+    <form id="form-import">
+      <h3>Справочник товаров</h3>
+      <p class="hint">Загрузите таблицу со штрихкодами и названиями — выгрузку из 1С, накладную или прайс поставщика (Excel или CSV). После этого при скане сразу видно, что за товар.</p>
+      <div class="row-btns import-pick">
+        <button type="button" class="btn" id="import-pick">Выбрать файл…</button>
+        <span class="muted" id="import-file">Файл не выбран</span>
+        <input type="file" id="import-input" accept=".xlsx,.xls,.xlsm,.ods,.csv,.txt" hidden>
+      </div>
+      <div class="import-map" id="import-map" hidden>
+        <div class="map-grid">
+          <label class="field"><span>Колонка со штрихкодом</span><select id="import-code"></select></label>
+          <label class="field"><span>Колонка с названием</span><select id="import-name"></select></label>
+        </div>
+        <div class="table-wrap">
+          <table class="table table-sm" id="import-preview">
+            <thead><tr><th>Код</th><th>Наименование</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="hint" id="import-stats"></p>
+        <label class="check">
+          <input type="checkbox" id="import-overwrite">
+          <span><b>Заменять уже заданные названия</b><small>Иначе файл заполнит только товары без названия.</small></span>
+        </label>
+      </div>
+      <div class="dlg-actions">
+        <button type="button" class="btn" id="import-cancel">Отмена</button>
+        <button type="submit" class="btn btn-primary" id="import-go" disabled>Загрузить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Настройки -->
+  <dialog class="dlg" id="dlg-settings">
+    <form id="form-settings">
+      <h3>Настройки</h3>
+      <label class="check">
+        <input type="checkbox" id="set-fix">
+        <span><b>Исправлять раскладку</b><small>Если при русской раскладке сканер печатает «ФКЕ-001» вместо «ART-001».</small></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="set-sound">
+        <span><b>Звук при скане</b><small>Короткий сигнал — принято, двойной низкий — ошибка.</small></span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="set-ask">
+        <span><b>Спрашивать название нового товара</b><small>Если кода нет ни на складе, ни в справочнике — сразу после скана откроется окно для названия.</small></span>
+      </label>
+      <label class="field">
+        <span>Скорость сканера: макс. пауза между символами, мс</span>
+        <input id="set-gap" type="number" min="15" max="300" step="5">
+        <small class="hint">Отличает скан от ручного ввода, когда курсор стоит в другом поле. Bluetooth-сканерам иногда нужно 80–120.</small>
+      </label>
+      <h4>Справочник названий</h4>
+      <p class="hint" id="set-catalog-info"></p>
+      <div class="row-btns">
+        <button type="button" class="btn" id="set-catalog-open">Загрузить из Excel/CSV</button>
+        <button type="button" class="btn btn-danger" id="set-catalog-clear">Очистить справочник</button>
+      </div>
+      <h4>Данные</h4>
+      <div class="row-btns">
+        <button type="button" class="btn" id="backup-save">Скачать резервную копию</button>
+        <button type="button" class="btn" id="backup-load">Восстановить из файла</button>
+        <input type="file" id="backup-file" accept="application/json,.json" hidden>
+      </div>
+      <div class="row-btns"><button type="button" class="btn btn-danger" id="wipe">Очистить склад и журнал</button></div>
+      <div class="dlg-actions"><button type="submit" class="btn btn-primary">Готово</button></div>
+    </form>
+  </dialog>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <script src="js/parse.js?v=3"></script>
+  <script src="js/store.js?v=3"></script>
+  <script src="js/catalog.js?v=3"></script>
+  <script src="js/scanner.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
+</body>
+</html>
